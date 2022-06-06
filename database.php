@@ -1,191 +1,136 @@
 <?php
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    $driver = new mysqli_driver();
+    $driver->report_mode = MYSQLI_REPORT_ALL ^ MYSQLI_REPORT_INDEX;
 
-class Database {
+// Verbindung zu der Datenbank: db_schauspieler1 herstellen
+    $dbconnection = new mysqli("localhost", "root", "root", "db_schauspieler1");
 
-    private $host = 'localhost';
-    private $person = 'root';
-    private $password = 'root';
-    private $db = 'db_schauspieler';
-
-    /**
-     * Creates a simple database-connection.
-     *
-     * @return PDO
-     */
-    private function create_connection() {
-        $conn = new PDO("mysql:host=$this->host;dbname=$this->db", $this->person, $this->password);
-        // set the PDO error mode to exception
-        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        return $conn;
+//Verbindung "testen"
+    if (!$dbconnection) {
+        echo "failed... " . $dbconnection->connect_error;
+        exit();
     }
+// Bestehende Tabellen loeschen, falls vorhanden = braucht kein "check if table exists"
+	$dbconnection->query("DROP TABLE IF EXISTS person");
+	$dbconnection->query("DROP TABLE IF EXISTS film_person");
+	$dbconnection->query("DROP TABLE IF EXISTS partner");
+	$dbconnection->query("DROP TABLE IF EXISTS nationalitaet");
+	$dbconnection->query("DROP TABLE IF EXISTS geschlecht");
+	
 
-    private function check_if_table_exist($connection, $table) {
-        try {
-            $connection->query("SELECT 1 FROM $table");
-        } catch (PDOException $e) {
-            return false;
-        }
-        return true;
-    }
+// Tabellen erstellen:
+//Tabelle nationalitaet
+   $create = $dbconnection->prepare("CREATE TABLE nationalitaet(
+    nationalitaet_id INT(6) Auto_INCREMENT NOT NULL PRIMARY KEY,
+    Land varchar(30) NOT NULL
+    );");
 
-    /**
-     * Create person Table
-     * ---
-     * Checks if "person" table exists already.
-     * Creates the table if not already exist.
-     *
-     * TABLE person:
-     *  - person_id
-     *  - vorname
-     *  - nachname
-     *  - password
-     *  
-     *  
-     */
-    private function create_person_table() {
-        // here: create table if not exist.
-        try {
-            $conn = $this->create_connection();
-            if (!$this->check_if_table_exist($conn, 'person')) {
-                // sql to create table
-                $sql = "CREATE TABLE person (
-                    person_id INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                    password VARCHAR(160) NOT NULL,
-                    vorname VARCHAR(40) NOT NULL,
-                    nachname VARCHAR(60)";
-                // use exec() because no results are returned
-                $conn->exec($sql);
-                echo "person table created successfully.<br>";
-            } else {
-                echo "person table already exist.<br>";
-            }
-        } catch (PDOException $e) {
-            echo $e->getMessage();
-        }
-        $conn = null;
-    }
+    $create->execute();
+//Tabelle geschlecht: 
+    $create = $dbconnection->prepare("CREATE TABLE geschlecht(
+        geschlecht_id INT(6) Auto_INCREMENT NOT NULL PRIMARY KEY,
+        geschlecht varchar(30) NOT NULL
+        );");
 
-    private function create_geschlecht_table() {
-        // here: create geschlecht table if not exist.
-        try {
-            $conn = $this->create_connection();
-            if (!$this->check_if_table_exist($conn, 'geschlecht' )) {
-                // sql to create table
-                $sql = "CREATE TABLE geschlecht (
-                    geschlecht_id INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                    geschlecht VARCHAR(12)";
-                // use exec() because no results are returned
-                $conn->exec($sql);
+//Tabelle partner:
+        $create = $dbconnection->prepare("CREATE TABLE 'partner'(
+            partner_id INT(6) Auto_INCREMENT NOT NULL PRIMARY KEY,
+            name_partner varchar(30) NOT NULL
+            );");    
 
-                // Add connection between geschlecht and person table.
-                $sql = "
-                    ALTER TABLE `geschlecht`  
-                    ADD CONSTRAINT `FK_geschlecht_person` 
-                        FOREIGN KEY (`person_id`) REFERENCES `person`(`person_id`) 
-                            ON UPDATE CASCADE 
-                            ON DELETE CASCADE;
-                    ";
-                // use exec() because no results are returned
-                $conn->exec($sql);
-                echo "geschlecht table created and connected successfully.<br>";
-            } else {
-                echo "geschlecht table already exist.<br>";
-            }
-        } catch (PDOException $e) {
-            echo $e->getMessage();
-        }
-        $conn = null;
-    }
+ // Tabelle 'person' mit 
+// person_id, voname, nachnae, Geburtsdatum, Geschlecht, auszeichnungen, Partner, Film, Nationalitaet1&2
+
+        $create = $dbconnection -> prepare ("CREATE TABLE 'person'(
+            person_id INT(6) AUTO_INCREMENT NOT NULL PRIMARY KEY,
+            vorname VARCHAR (30) NOT NULL,
+            nachname VARCHAR (30) NOT NULL,
+            geburtsdatum DATE NOT NULL,
+            nationalitaet1_id INT (6) NOT NULL,
+            nationalitaet2_id  INT(6) DEFAULT 1,
+            geschlecht_id INT(6) NOT NULL,
+            auszeichnungen INT(6) NOT NULL,
+            partner_id VARCHAR (60) DEFAULT '',
+            film_id INT(6) DEFAULT '',
+            FOREIGN KEY (nationalitaet1_id) REFERENCES nationalitaet(nationalitaet_id),
+            FOREIGN KEY (nationalitaet2_id) REFERENCES nationalitaet(nationalitaet_id),
+            FOREIGN KEY (geschlecht_id) REFERENCES geschlecht(geschlecht_id),
+            FOREIGN KEY (partner_id) REFERENCES 'partner'(partner_id),
+        );");
+        $create-> execute();
+
+//Tabelle film_person erstellen:   
+        $create = $dbconnection->prepare("CREATE TABLE film_person(
+            film_person_id INT(6) Auto_INCREMENT NOT NULL PRIMARY KEY,
+            person_id INT(6) NOT NULL,
+            film_id INT(6) NOT NULL,
+            FOREIGN KEY (person_id) REFERENCES person(person_id),
+            FOREIGN KEY (film_id) REFERENCES film(film_id)
+            );");
+        
+        $create->execute();
+                
+//InhaltNationalitaet: 1: Deutschland / 2: Australien/ 3:Grossbritanien / 4: Amerika / 5: Südkorea
+	$insertnationalitaet = $dbconnection->prepare("INSERT INTO Nationalitaet
+        (Land)
+        VALUES ('');");
+    $insertnationalitaet->execute();
+    $insertnationalitaet = $dbconnection->prepare("INSERT INTO Nationalitaet
+        (Land)
+        VALUES ('Deutschland');");
+    $insertnationalitaet->execute();
+    $insertnationalitaet = $dbconnection->prepare("INSERT INTO Nationalitaet
+        (Land)
+        VALUES ('Australien');");
+    $insertnationalitaet->execute();
+    $insertnationalitaet = $dbconnection->prepare("INSERT INTO Nationalitaet
+        (Land)
+        VALUES ('Grossbritanien');");
+    $insertnationalitaet->execute();
+    $insertnationalitaet = $dbconnection->prepare("INSERT INTO Nationalitaet
+        (Land)
+        VALUES ('Amerika');");
+    $insertnationalitaet->execute();
+    $insertnationalitaet = $dbconnection->prepare("INSERT INTO Nationalitaet
+        (Land)
+        VALUES ('Südkorea');");
+    $insertNationalitaet->execute();
+
 
     
+//inhalt geschlecht: 0: männlich / 1: weiblich
+    $insertgeschlecht = $dbconnection->prepare("INSERT INTO geschlecht
+        (geschlecht)
+        VALUES ('männlich');");
+    $insertgeschlecht->execute();
 
-    public function prepare_schauspieler() {
-        $this->create_person_table();
-        $this->create_geschlecht_table();
-        return true;
-    }
+    $insertgeschlecht = $dbconnection->prepare("INSERT INTO geschlecht
+        (geschlecht)
+        VALUES ('weiblich');");
+    $insertgeschlecht->execute();
+    
+//Inhalt person
+    $insertperson = $dbconnection->prepare("INSERT INTO person
+        (vorname, nachname, geburtsdatum, nationaitaet1_id, nationalitaet2_id, geschlecht_id, auszeichungen, partner_id, film_id )
+        VALUES ('anne', 'heathaway', '12.11.1982', 4, 0, 1, '300', 1, x);");
+    $insertperson->execute();
 
-    public function prepare_login() {
-        $this->create_person_table();
-        $this->create_geschlecht_table();
-        return true;
-    }
+    $insertperson = $dbconnection->prepare("INSERT INTO person
+        (vorname, nachname, geburtsdatum, nationaitaet1_id, nationalitaet2_id, geschlecht_id, auszeichungen, partner_id, film_id )
+        VALUES ('sandra', 'bullock', '26.07.1964', 1, 4, 1, '300', 2, x);");
+    $insertperson->execute();
 
-    public function prepare_registration() {
-        $this->create_person_table();
-        $this->create_geschlecht_table();
-        return true;
-    }
+    $insertperson = $dbconnection->prepare("INSERT INTO person
+        (vorname, nachname, geburtsdatum, nationaitaet1_id, nationalitaet2_id, geschlecht_id, auszeichungen, partner_id, film_id )
+        VALUES ('cate', 'blanchett', '14.05.1969', 2, 4, 1, '300', 3, x);");
+    $insertperson->execute();
 
-    public function login_person($vorname, $password) {
-        try {
-            $conn = $this->create_connection();
-            $query = "SELECT * FROM `person` WHERE vorname = ?";
-            $statement = $conn->prepare($query);
-            $statement->execute([$vorname]);
 
-            $person = $statement->fetchAll(PDO::FETCH_CLASS);
 
-            if (empty($person)) {
-                return false;
-            }
-
-            // person exist, we only look at the first entry.
-            $person = $person[0];
-
-            $password_saved = $person->password;
-            if (!password_verify($password, $password_saved)) {
-                return false;
-            }
-
-            // remove the password, we don't want to transfer this anywhere.
-            unset($person->password);
-
-            return $person;
-        } catch (PDOException $e) {
-            echo $e->getMessage();
-        }
-
-        return false;
-    }
-
-    public function register_person($vorname, $password, $nachname=null) {
-        // here: insert a new person into the database.
-        try {
-            $conn = $this->create_connection();
-            $query = "SELECT * FROM `person` WHERE vorname = ?";
-            $statement = $conn->prepare($query);
-            $statement->execute([$vorname]);
-
-            $person = $statement->fetchAll(PDO::FETCH_CLASS);
-            if (!empty($person)) {
-                return false;
-            }
-        } catch (PDOException $e) {
-            echo $e->getMessage();
-        }
-
-        // now: save person.
-        try {
-            $conn = $this->create_connection();
-
-            $sql = 'INSERT INTO person(vorname, password, nachname, register_date, geschlecht)
-            VALUES(?, ?, ?, NOW, ?())';
-            $statement = $conn->prepare($sql);
-            $password_hash = password_hash($password, PASSWORD_DEFAULT);
-            $statement->execute([$vorname, $password_hash, $nachname]);
-            return true;
-        } catch (PDOException $e) {
-            echo $e->getMessage();
-        }
-
-        return false;
-    }
-
+// drop all definition
     public function drop_all() {
         try {
             $conn = $this->create_connection();
@@ -198,6 +143,15 @@ class Database {
             $conn->exec($sql);
 
             $sql = 'DROP TABLE `geschlecht`';
+            $conn->exec($sql);
+
+            $sql = 'DROP TABLE `nationalitaet`';
+            $conn->exec($sql);
+
+            $sql = 'DROP TABLE `film_person`';
+            $conn->exec($sql);
+
+            $sql = 'DROP TABLE `partner`';
             $conn->exec($sql);
         } catch (PDOException $e) {
             echo $e->getMessage();
