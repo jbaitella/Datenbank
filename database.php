@@ -172,6 +172,7 @@ $insertfilm->execute();
             $sql = 'ALTER TABLE `film`
                 DROP FOREIGN KEY `FK_film_id`;';
             $conn->exec($sql);
+		
 
             $sql = 'DROP TABLE `person`';
             $conn->exec($sql);
@@ -181,11 +182,9 @@ $insertfilm->execute();
 
             $sql = 'DROP TABLE `nationalitaet1`';
             $conn->exec($sql);
-
 		
             $sql = 'DROP TABLE `nationalitaet2`';
             $conn->exec($sql);
-v
 
             $sql = 'DROP TABLE `film_person`';
             $conn->exec($sql);
